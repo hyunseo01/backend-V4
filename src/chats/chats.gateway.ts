@@ -54,7 +54,42 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: SocketWithAuth) {
-    console.log(`WebSocket 연결 종료: ${client.data?.accountId}`);
+    const accountId = client.data?.accountId;
+    const role = client.data?.role;
+
+    if (!accountId) {
+      console.log('연결 종료 - 인증 정보 없음');
+      return;
+    }
+
+    // 로그
+    console.log(`WebSocket 연결 종료: ${accountId} (${role})`);
+
+    // 1. 유저별 개인 room에서 leave
+    client.leave(`user:${accountId}`);
+
+    // 2. 이 클라이언트가 참여한 모든 방에서 강제 leave
+    for (const room of client.rooms) {
+      if (room !== client.id) {
+        client.leave(room);
+      }
+    }
+
+    // 3. 트레이너일 경우: 트레이너의 채팅방 리스트 갱신
+    if (role === 'trainer') {
+      this.chatsService
+        .getChatRoomsForTrainer(accountId)
+        .then((updatedRooms) => {
+          this.server
+            .to(`user:${accountId}`)
+            .emit('roomList.update', updatedRooms);
+        })
+        .catch((err) => {
+          console.error('트레이너 리스트 갱신 실패:', err);
+        });
+    }
+
+    // 4. (선택) 상대방에게 알림 보낼 수 있음 (예: "상대가 오프라인 됐어요")
   }
 
   @SubscribeMessage('message.send')
@@ -72,6 +107,8 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       isSystem: dto.isSystem ?? false,
     });
 
+    const photoUrl = await this.chatsService.getSenderPhotoUrl(accountId, role);
+
     const payload: ChatMessageDto = {
       messageId: saved.id,
       chatId: saved.chatId,
@@ -79,6 +116,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       senderRole: role,
       content: saved.content,
       createdAt: saved.createdAt,
+      photoUrl,
     };
 
     client.emit('message.receive', payload);

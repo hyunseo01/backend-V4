@@ -5,4 +5,5 @@ export class ChatMessageDto {
   senderRole: 'user' | 'trainer';
   content: string;
   createdAt: Date;
+  photoUrl: string | null;
 }

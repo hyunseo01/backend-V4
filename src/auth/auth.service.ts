@@ -224,18 +224,29 @@ export class AuthService {
     }
   }
 
-  async reissueAccessToken(refreshToken: string): Promise<string> {
+  async reissueAccessToken(refreshToken: string): Promise<{
+    accessToken: string;
+    accountId: number;
+    role: string;
+  }> {
     try {
-      const payload = this.jwtService.verify<{ sub: number; role: string }>(
-        refreshToken,
-        {
-          secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        },
-      );
+      const payload = this.jwtService.verify<{
+        sub: number;
+        role: string;
+      }>(refreshToken, {
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      });
 
-      return Promise.resolve(
-        this.generateAccessToken({ sub: payload.sub, role: payload.role }),
-      );
+      const accessToken = this.generateAccessToken({
+        sub: payload.sub,
+        role: payload.role,
+      });
+
+      return {
+        accessToken,
+        accountId: payload.sub,
+        role: payload.role,
+      };
     } catch (err: unknown) {
       if (err instanceof Error) {
         console.error('리프레시 토큰 오류:', err.message);

@@ -38,6 +38,22 @@ export class ChatsService {
     private readonly dataSource: DataSource,
   ) {}
 
+  async getSenderPhotoUrl(
+    accountId: number,
+    role: 'user' | 'trainer',
+  ): Promise<string | null> {
+    if (role === 'user') {
+      const user = await this.userRepository.findOne({ where: { accountId } });
+      if (!user) return null;
+      const profile = await this.profileRepository.findOne({
+        where: { user: { id: user.id } },
+      });
+      return profile?.photoUrl ?? DEFAULT_PROFILE_IMAGE;
+    } else {
+      return DEFAULT_PROFILE_IMAGE;
+    }
+  }
+
   async saveMessage(params: {
     chatId: number;
     content: string;
