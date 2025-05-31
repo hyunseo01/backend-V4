@@ -1,16 +1,16 @@
 import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
   BadRequestException,
-  InternalServerErrorException,
+  ConflictException,
   ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, LessThan, Repository } from 'typeorm';
 import { Account } from '../account/entities/account.entity';
 import { User } from '../users/entities/users.entity';
 import { Trainer } from '../trainer/entities/trainer.entity';
@@ -22,6 +22,9 @@ import { UpdatePasswordDto } from './dto/updatePassword.dto';
 import { Chat } from '../chats/entities/chats.entity';
 import { UserRole } from '../common/interfaces/user-role.type';
 import { ConfigService } from '@nestjs/config';
+import { NotificationsService } from '../notifications/notifications.service';
+import { Cron } from '@nestjs/schedule';
+import dayjs from 'dayjs';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +39,7 @@ export class AuthService {
     private readonly trainerAssignService: TrainerAssignService,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   generateAccessToken(payload: { sub: number; role: string }): string {
@@ -153,6 +157,13 @@ export class AuthService {
     const accessToken = this.generateAccessToken(payload);
     const refreshToken = this.generateRefreshToken(payload);
 
+    if (account.role === 'user' && !account.firstLoginNotified) {
+      await this.notificationsService.sendFirstLoginNotice(account.id);
+      await this.accountRepository.update(account.id, {
+        firstLoginNotified: true,
+      });
+    }
+
     return {
       message: '로그인 성공',
       data: {
@@ -191,7 +202,7 @@ export class AuthService {
     try {
       await this.dataSource.transaction(async (manager) => {
         const userRepo = manager.getRepository(User);
-        const accountRepo = manager.getRepository(Account);
+        // const accountRepo = manager.getRepository(Account);
 
         const user = await userRepo.findOne({
           where: { accountId },
@@ -204,14 +215,15 @@ export class AuthService {
 
         // 탈퇴 처리
         user.isDeleted = true;
-        user.ptCount = 0;
-        user.trainerId = null;
-        user.trainer = null;
 
-        user.account.name = '탈퇴한 회원';
-        user.account.email = `deleted_${accountId}@example.com`;
+        /** 스케줄러로 30일 후 제거(null로 데이터 대체) */
+        // user.ptCount = 0;
+        // user.trainerId = null;
+        // user.trainer = null;
+        //
+        // user.account.name = '탈퇴한 회원';
+        // user.account.email = `deleted_${accountId}@example.com`;
 
-        await accountRepo.save(user.account);
         await userRepo.save(user);
       });
 
@@ -255,5 +267,36 @@ export class AuthService {
         'Refresh token이 유효하지 않거나 만료되었습니다.',
       );
     }
+  }
+
+  @Cron('0 0 * * *') // 매일 자정 실행
+  async cleanupDeletedUsers() {
+    const thresholdDate = dayjs()
+      .tz('Asia/Seoul')
+      .subtract(30, 'day')
+      .startOf('day')
+      .toDate();
+
+    const users = await this.userRepository.find({
+      where: {
+        isDeleted: true,
+        updatedAt: LessThan(thresholdDate),
+      },
+      relations: ['account'],
+    });
+
+    for (const user of users) {
+      user.ptCount = 0;
+      user.trainerId = null;
+      user.trainer = null;
+
+      user.account.name = '탈퇴한 회원';
+      user.account.email = `deleted_${user.accountId}@example.com`;
+
+      await this.accountRepository.save(user.account);
+      await this.userRepository.save(user);
+    }
+
+    console.log(`[스케줄러] ${users.length}명의 탈퇴 유저 정리 완료`);
   }
 }

@@ -1,12 +1,13 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
+  Entity,
   JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import { BaseTimeEntity } from '../../common/entities/baseTime.entity';
 import { Account } from '../../account/entities/account.entity';
+
 export enum NotificationType {
   RESERVATION = 'reservation',
   CHAT = 'chat',
@@ -17,7 +18,6 @@ export enum NotificationType {
 export class Notification extends BaseTimeEntity {
   @PrimaryGeneratedColumn()
   id: number;
-
   //알림 수신자 (User 또는 Trainer)
   @ManyToOne(() => Account, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'accountId' })

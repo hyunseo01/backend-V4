@@ -2,12 +2,14 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Reservation } from './entities/reservation.entity';
-import { DataSource, Repository } from 'typeorm';
+import { Between, DataSource, Repository } from 'typeorm';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { Schedule } from '../schedules/entities/schedules.entity';
 import { User } from '../users/entities/users.entity';
@@ -18,6 +20,9 @@ import {
 } from './dto/get-my-reservations-response.dto';
 import { TrainerReservationDto } from './dto/get-trainer-reservations-response.dto';
 import { Trainer } from '../trainer/entities/trainer.entity';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { Chat } from '../chats/entities/chats.entity';
+import { ChatsService } from '../chats/chats.service';
 
 @Injectable()
 export class ReservationsService {
@@ -33,6 +38,12 @@ export class ReservationsService {
     private readonly accountRepository: Repository<Account>,
     @InjectRepository(Trainer)
     private readonly trainerRepository: Repository<Trainer>,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => ChatsService))
+    private readonly chatsService: ChatsService,
+    @InjectRepository(Chat)
+    private readonly chatRepository: Repository<Chat>,
   ) {}
 
   async createReservation(
@@ -87,6 +98,34 @@ export class ReservationsService {
       await reservationRepo.save(reservation);
       await userRepo.save(user);
     });
+
+    const user = await this.userRepository.findOneBy({ accountId });
+    if (!user || !user.trainerId) return;
+
+    const trainer = await this.trainerRepository.findOne({
+      where: { id: user.trainerId },
+      relations: ['account'],
+    });
+
+    if (trainer?.account?.id) {
+      await this.notificationsService.sendReservationNoticeToTrainer(
+        trainer.account.id,
+      );
+    }
+
+    const chat = await this.chatRepository.findOne({
+      where: {
+        userId: user.id,
+        trainerId: user.trainerId,
+      },
+    });
+
+    if (chat) {
+      await this.chatsService.createBotMessage(
+        chat.id,
+        '예약이 완료되었습니다. 일정에 맞춰 준비해주세요!',
+      );
+    }
   }
 
   async cancelReservation(
@@ -153,6 +192,45 @@ export class ReservationsService {
       }
       await reservationRepo.save(reservation);
     });
+
+    const reservation = await this.reservationRepository.findOne({
+      where: { id: reservationId },
+      relations: [
+        'user',
+        'user.account',
+        'schedule',
+        'schedule.trainer',
+        'schedule.trainer.account',
+      ],
+    });
+    if (!reservation) return;
+
+    const targetAccountId =
+      role === 'user'
+        ? reservation.schedule.trainer?.account?.id
+        : reservation.user?.account?.id;
+
+    if (targetAccountId && reservation.schedule.startTime) {
+      const timeText = reservation.schedule.startTime.slice(0, 5);
+      await this.notificationsService.sendReservationCancelNotice(
+        targetAccountId,
+        timeText,
+      );
+    }
+
+    const chat = await this.chatRepository.findOne({
+      where: {
+        userId: reservation.user.id,
+        trainerId: reservation.schedule.trainerId,
+      },
+    });
+
+    if (chat) {
+      await this.chatsService.createBotMessage(
+        chat.id,
+        '예약이 취소되었습니다. 다음에 다시 이용해주세요.',
+      );
+    }
   }
 
   async getMyReservations(
@@ -242,6 +320,47 @@ export class ReservationsService {
         isInProgress,
         isFinished,
       };
+    });
+  }
+
+  // 오늘 예약 전체 조회
+  async findTodayReservations(date: string): Promise<Reservation[]> {
+    return this.reservationRepository.find({
+      where: {
+        status: 'confirmed',
+        schedule: { date: new Date(date) },
+      },
+      relations: [
+        'user',
+        'user.account',
+        'schedule',
+        'schedule.trainer',
+        'schedule.trainer.account',
+      ],
+    });
+  }
+
+  // 특정 시간대 예약 조회 (1시간 전 기준)
+  async findReservationsBetweenTime(
+    date: string,
+    startTime: string,
+    endTime: string,
+  ): Promise<Reservation[]> {
+    return this.reservationRepository.find({
+      where: {
+        status: 'confirmed',
+        schedule: {
+          date: new Date(date),
+          startTime: Between(startTime + ':00', endTime + ':00'), // 'HH:MM:SS'
+        },
+      },
+      relations: [
+        'user',
+        'user.account',
+        'schedule',
+        'schedule.trainer',
+        'schedule.trainer.account',
+      ],
     });
   }
 }

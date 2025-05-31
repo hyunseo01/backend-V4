@@ -13,11 +13,12 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SchedulesModule } from './schedules/schedules.module';
 import { ReservationsModule } from './reservations/reservations.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
-
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({

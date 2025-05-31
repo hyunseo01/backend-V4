@@ -1,14 +1,9 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { UserRole } from '../../common/interfaces/user-role.type';
+import { BaseTimeEntity } from '../../common/entities/baseTime.entity';
 
 @Entity('accounts')
-export class Account {
+export class Account extends BaseTimeEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -24,9 +19,9 @@ export class Account {
   @Column({ type: 'enum', enum: ['user', 'trainer'] })
   role: UserRole;
 
-  @CreateDateColumn()
-  createdAt: Date;
+  @Column({ nullable: true })
+  expoPushToken: string;
 
-  @UpdateDateColumn()
-  updatedAt: Date;
+  @Column({ default: false })
+  firstLoginNotified: boolean;
 }

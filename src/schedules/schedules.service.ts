@@ -17,13 +17,10 @@ export class SchedulesService {
   constructor(
     @InjectRepository(Schedule)
     private readonly scheduleRepository: Repository<Schedule>,
-
     @InjectRepository(Reservation)
     private readonly reservationRepository: Repository<Reservation>,
-
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-
     @InjectRepository(Trainer)
     private readonly trainerRepository: Repository<Trainer>,
   ) {}

@@ -1,11 +1,13 @@
 import {
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Chat } from './entities/chats.entity';
-import { Repository, DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ChatRoomDto } from './dto/chat-room.dto';
 import { Trainer } from '../trainer/entities/trainer.entity';
 import { Message } from '../messages/entities/messages.entity';
@@ -13,6 +15,7 @@ import { formatDateForChat } from '../common/utils/formatDateForChat';
 import { ChatMessageDto } from './dto/chat-message.dto';
 import { User } from '../users/entities/users.entity';
 import { Profile } from '../profile/entities/profile.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export const DEFAULT_PROFILE_IMAGE =
   'https://i.pinimg.com/236x/f4/4c/b9/f44cb9b5f64a60d95b78b3187f459ccd.jpg';
@@ -22,20 +25,17 @@ export class ChatsService {
   constructor(
     @InjectRepository(Chat)
     private readonly chatRepository: Repository<Chat>,
-
     @InjectRepository(Message)
     private readonly messageRepository: Repository<Message>,
-
     @InjectRepository(Trainer)
     private readonly trainerRepository: Repository<Trainer>,
-
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-
     @InjectRepository(Profile)
     private readonly profileRepository: Repository<Profile>,
-
     private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getSenderPhotoUrl(
@@ -78,6 +78,15 @@ export class ChatsService {
 
       const saved = await manager.save(Message, message);
       await manager.update(Chat, { id: chatId }, { updatedAt: new Date() });
+
+      const targetAccountId =
+        senderId === chat.userId
+          ? chat.trainer?.account?.id
+          : chat.user?.account?.id;
+
+      if (!isSystem && targetAccountId && senderId !== targetAccountId) {
+        await this.notificationsService.sendChatPush(targetAccountId, content);
+      }
 
       return saved;
     });
@@ -297,6 +306,27 @@ export class ChatsService {
         createdAt: m.createdAt,
         photoUrl: isUser ? userPhotoUrl : DEFAULT_PROFILE_IMAGE,
       };
+    });
+  }
+
+  async createBotMessage(chatId: number, content: string): Promise<Message> {
+    return await this.dataSource.transaction(async (manager) => {
+      const chat = await manager.findOne(Chat, { where: { id: chatId } });
+      if (!chat) {
+        throw new NotFoundException('채팅방을 찾을 수 없습니다.');
+      }
+
+      const message = manager.create(Message, {
+        chat,
+        content,
+        isSystem: true,
+        isRead: true,
+      });
+
+      const saved = await manager.save(Message, message);
+      await manager.update(Chat, { id: chatId }, { updatedAt: new Date() });
+
+      return saved;
     });
   }
 }

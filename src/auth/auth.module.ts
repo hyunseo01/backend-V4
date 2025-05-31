@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -9,6 +9,7 @@ import { Account } from '../account/entities/account.entity';
 import { User } from '../users/entities/users.entity';
 import { Trainer } from '../trainer/entities/trainer.entity';
 import { TrainerAssignService } from '../common/services/trainer-assign.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { TrainerAssignService } from '../common/services/trainer-assign.service'
         signOptions: { expiresIn: '1h' },
       }),
     }),
+    forwardRef(() => NotificationsModule),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, TrainerAssignService],

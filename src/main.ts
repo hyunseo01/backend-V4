@@ -3,7 +3,8 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { TimezoneInterceptor } from './common/interceptors/timezone.interceptor';
 
 //배포시 에러해결용
 // import crypto from 'crypto';
@@ -16,6 +17,8 @@ async function bootstrap() {
     origin: true,
     credentials: true,
   });
+
+  app.useGlobalInterceptors(new TimezoneInterceptor());
 
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
@@ -32,4 +35,5 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT || 3050);
 }
+
 bootstrap();

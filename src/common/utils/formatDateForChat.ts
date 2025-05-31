@@ -1,29 +1,37 @@
-export function formatDateForChat(date: Date): string {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const diffInDays = Math.floor(diff / (1000 * 60 * 60 * 24));
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 
-  const isToday = now.toDateString() === date.toDateString();
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+export function formatDateForChat(date: Date): string {
+  const now = dayjs().tz('Asia/Seoul');
+  const target = dayjs(date).tz('Asia/Seoul');
+
+  const diffInDays = now.diff(target, 'day');
+  const isToday = now.isSame(target, 'day');
 
   if (isToday) {
-    const hours = date.getHours();
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const ampm = hours < 12 ? '오전' : '오후';
-    const formattedHour = hours % 12 === 0 ? 12 : hours % 12;
-    return `${ampm} ${formattedHour}:${minutes}`;
+    const hour = target.hour();
+    const minute = target.minute().toString().padStart(2, '0');
+    const ampm = hour < 12 ? '오전' : '오후';
+    const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
+    return `${ampm} ${formattedHour}:${minute}`;
   }
 
   if (diffInDays === 1) return '어제';
   if (diffInDays < 7) return `${diffInDays}일 전`;
 
-  const nowYear = now.getFullYear();
-  const dateYear = date.getFullYear();
+  const nowYear = now.year();
+  const dateYear = target.year();
 
   if (nowYear === dateYear) {
-    return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+    return `${target.month() + 1}월 ${target.date()}일`;
   }
 
-  return `${dateYear}.${(date.getMonth() + 1)
+  return `${dateYear}.${(target.month() + 1).toString().padStart(2, '0')}.${target
+    .date()
     .toString()
-    .padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')}`;
+    .padStart(2, '0')}`;
 }
