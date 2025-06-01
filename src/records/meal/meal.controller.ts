@@ -1,15 +1,16 @@
 import {
-  Controller,
-  Post,
+  BadRequestException,
   Body,
-  UseGuards,
+  Controller,
+  Delete,
   Get,
-  Query,
-  Req,
-  Patch,
   Param,
   ParseIntPipe,
-  Delete,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { MealService } from './meal.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -63,5 +64,22 @@ export class MealController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<void> {
     return this.mealService.deleteMealRecord(req.user.userId, id);
+  }
+
+  @Post('analyze')
+  @ApiOperation({ summary: '식단 이미지 AI 분석 (URL 기반)' })
+  async analyzeMealImage(@Body() body: { imageUrl: string }) {
+    const { imageUrl } = body;
+
+    if (!imageUrl) {
+      throw new BadRequestException('이미지 URL이 필요합니다.');
+    }
+
+    const result = await this.mealService.analyzeMealImage(imageUrl);
+
+    return {
+      message: '이미지 분석 성공',
+      data: result,
+    };
   }
 }

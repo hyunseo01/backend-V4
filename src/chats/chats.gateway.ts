@@ -1,11 +1,11 @@
 import {
-  WebSocketGateway,
-  WebSocketServer,
+  ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
-  MessageBody,
-  ConnectedSocket,
+  WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
@@ -15,6 +15,12 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { ReadMessageDto } from './dto/read-message.dto';
 import { extractUserFromSocket } from '../auth/utils/socket-auth.helper';
 import { ChatMessageDto } from '../messages/dto/chat-message.dto';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 interface SocketWithAuth extends Socket {
   data: {
@@ -115,9 +121,10 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       senderId: saved.senderId,
       senderRole: role,
       content: saved.content,
-      createdAt: saved.createdAt,
+      createdAt: dayjs(saved.createdAt).tz('Asia/Seoul').format(),
       photoUrl,
     };
+    console.log('테스트: ', dayjs(saved.createdAt).tz('Asia/Seoul').format());
 
     client.emit('message.receive', payload);
 

@@ -16,6 +16,7 @@ import { ChatMessageDto } from './dto/chat-message.dto';
 import { User } from '../users/entities/users.entity';
 import { Profile } from '../profile/entities/profile.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import dayjs from 'dayjs';
 
 export const DEFAULT_PROFILE_IMAGE =
   'https://i.pinimg.com/236x/f4/4c/b9/f44cb9b5f64a60d95b78b3187f459ccd.jpg';
@@ -303,7 +304,9 @@ export class ChatsService {
         senderId: m.senderId,
         senderRole: isUser ? 'user' : 'trainer',
         content: m.content,
-        createdAt: m.createdAt,
+        createdAt: dayjs(m.createdAt)
+          .tz('Asia/Seoul')
+          .format('YYYY-MM-DD HH:mm:ss'),
         photoUrl: isUser ? userPhotoUrl : DEFAULT_PROFILE_IMAGE,
       };
     });

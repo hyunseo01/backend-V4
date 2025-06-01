@@ -14,6 +14,7 @@ import { AppService } from './app.service';
 import { SchedulesModule } from './schedules/schedules.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -34,7 +35,6 @@ import { ScheduleModule } from '@nestjs/schedule';
       }),
       inject: [ConfigService],
     }),
-
     AuthModule,
     UsersModule,
     TrainerModule,
@@ -45,6 +45,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     MessagesModule,
     SchedulesModule,
     ReservationsModule,
+    HttpModule,
   ],
   controllers: [AppController],
   providers: [AppService],
