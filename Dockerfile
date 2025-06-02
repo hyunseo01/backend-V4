@@ -2,10 +2,11 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-COPY dist ./dist
-COPY node_modules ./node_modules
 COPY .env .env
+COPY package*.json ./
+RUN npm install
+COPY dist ./dist
+#COPY node_modules ./node_modules
 COPY global-setup.js ./global-setup.js
 ENV NODE_OPTIONS="--require ./global-setup.js"
 

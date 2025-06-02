@@ -2,17 +2,10 @@ version: '3.8'
 
 services:
   server:
+    container_name: backend-v4_server
     build: .
     ports:
       - '3050:3050'
-    environment:
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_USERNAME=root
-      - DB_PASSWORD=1234
-      - DB_DATABASE=testdb
-      - JWT_SECRET=finalTeamMainYuna
-      - JWT_EXPIRES_IN=3600s
-      - JWT_REFRESH_SECRET=finalTeamMainJunYongRefresh
-      - JWT_REFRESH_EXPIRES_IN=30d
-      - AWS_REGION=ap-northeast-2
+    env_file:
+      - .env
+    restart: always
